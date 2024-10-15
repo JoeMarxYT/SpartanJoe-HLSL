@@ -1,5 +1,7 @@
 // from https://en.wikipedia.org/wiki/Simplex_noise
 
+// This file is incomplete
+
 #ifndef PROC_NOISE_FX
 #define PROC_NOISE_FX
 
