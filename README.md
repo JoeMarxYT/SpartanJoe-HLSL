@@ -24,5 +24,15 @@ There's also sample tags you can use you can use (thanks to RynoMods for porting
       tool generate-templates win shaders\halogram
    ```
 
-   Check for any errors. If you see `pc and durango constant tables do not match` do not panic. You are compiling shaaders for Windows, Durango is for Xbox.
+   Check for any errors. If you see `PC and durango constant tables do not match` do not panic. You are compiling shaaders for Windows, Durango is for Xbox. Always check debug text files
+   for more details.
 
+6. Open up Sapien. Load any scenario you want like `levels\test\box\box` and place the sample tags.
+
+7. If the sample tags' shaders render, then you've succeeded.
+
+![final render](https://github.com/SpartanJoe193/SpartanJoe-HLSL/blob/main/pics/Screenshot%202024-10-16%20104110.png)
+Notes:
+- `cook_torrance_ggx.fx` is broken. Any attempt at compiling will result in errors.
+- any tag that uses the functions in `transparent_generic.fx` is strongly recommended to have `calc_self_illumination_transparent_ps` setup in the same `render_method_definition` tag as well
+- you can to port the hlsl functions to ODST and newer games although as previously stated porting them to Reach+ games require more effort 
