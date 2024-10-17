@@ -140,6 +140,7 @@ PARAM(float3, primary_change_color);
 PARAM(float3, secondary_change_color);
 PARAM(float3, tertiary_change_color);
 PARAM(float3, quaternary_change_color);
+PARAM(bool,  detail_after_color_change);
 
 void calc_albedo_two_change_color_ps(
 	in float2 texcoord,
@@ -154,9 +155,17 @@ void calc_albedo_two_change_color_ps(
 	change_color.xyz=	((1.0f-change_color.x) + change_color.x*primary_change_color.xyz)*
 						((1.0f-change_color.y) + change_color.y*secondary_change_color.xyz);
 
-	albedo.xyz= DETAIL_MULTIPLIER * base.xyz*detail.xyz*change_color.xyz;
+	if(detail_after_color_change)
+	{
+	albedo.xyz= DETAIL_MULTIPLIER * base.xyz*change_color.xyz*detail.xyz;
 	albedo.w= base.w*detail.w;
-	
+	}
+	else{
+		albedo.xyz= DETAIL_MULTIPLIER * base.xyz*detail.xyz*change_color.xyz;
+		albedo.w= base.w*detail.w;
+
+	}
+
 	apply_pc_albedo_modifier(albedo, normal);
 }
 
@@ -175,12 +184,48 @@ void calc_albedo_four_change_color_ps(
 						((1.0f-change_color.z) + change_color.z*tertiary_change_color.xyz)	*
 						((1.0f-change_color.w) + change_color.w*quaternary_change_color.xyz);
 
-	albedo.xyz= DETAIL_MULTIPLIER * base.xyz*detail.xyz*change_color.xyz;
+	if(detail_after_color_change)
+	{
+	albedo.xyz= DETAIL_MULTIPLIER * base.xyz*change_color.xyz*detail.xyz;
 	albedo.w= base.w*detail.w;
+	}
+	else{
+		albedo.xyz= DETAIL_MULTIPLIER * base.xyz*detail.xyz*change_color.xyz;
+		albedo.w= base.w*detail.w;
+	}
 	
 	apply_pc_albedo_modifier(albedo, normal);
 }
 
+void calc_albedo_texture_from_color_change_ps(
+	in float2 texcoord,
+	out float4 albedo,
+	in float3 normal,
+	in float4 misc)
+
+{
+	float4 	detail=			sampleBiasGlobal2D(detail_map,		transform_texcoord(texcoord, detail_map_xform));
+	float4 	change_color=	sampleBiasGlobal2D(change_color_map,	transform_texcoord(texcoord, change_color_map_xform));
+	float 	epsilon= 0.000001f;
+
+	// Great for saving space
+
+	change_color.xyz=	((1.0f-change_color.x) + change_color.x*primary_change_color.xyz)	*
+						((1.0f-change_color.y) + change_color.y*secondary_change_color.xyz)	*
+						((1.0f-change_color.z) + change_color.z*tertiary_change_color.xyz)	*
+						((1.0f-change_color.w) + change_color.w*quaternary_change_color.xyz);
+	
+	if(detail_after_color_change)
+	{
+	albedo.xyz= DETAIL_MULTIPLIER *  epsilon+change_color.xyz*detail.xyz;
+	}
+	else{
+		albedo.xyz= DETAIL_MULTIPLIER * epsilon+detail.xyz*change_color.xyz;
+	}
+
+	apply_pc_albedo_modifier(albedo, normal);
+
+}
 
 PARAM_SAMPLER_2D(detail_map_overlay);
 PARAM(float4, detail_map_overlay_xform);
