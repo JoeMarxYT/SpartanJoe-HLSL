@@ -33,6 +33,6 @@ There's also sample tags you can use you can use (thanks to RynoMods for porting
 
 ![final render](https://github.com/SpartanJoe193/SpartanJoe-HLSL/blob/main/pics/Screenshot%202024-10-16%20104110.png)
 Notes:
-- The Material Models "Cook Torrance GGX" and its PBR map derivative now work although sample tags will be delayed
+- The Material Models "Cook Torrance GGX" and its PBR map derivative now work
 - any tag that uses the functions in `transparent_generic.fx` is strongly recommended to have `calc_self_illumination_transparent_ps` setup in the same `render_method_definition` tag as well
 - you can to port the hlsl functions to ODST and newer games although as previously stated porting them to Reach+ games require more effort 
