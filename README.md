@@ -5,6 +5,9 @@ There's also sample tags you can use you can use (thanks to RynoMods for porting
 
 ## How to set up
 ### Most of the functions are for `halogram` we will set things up in the `render_method_defintion` tag 
+
+### steps 1 and 2 are for any custom shader function you made yourself
+
 1. Open `shaders\halogram.render_method_definition` and add a new block in the category you want to modify
 ![setup](https://github.com/SpartanJoe193/SpartanJoe-HLSL/blob/main/pics/render_method_definition_setup.png?raw=true)
 
