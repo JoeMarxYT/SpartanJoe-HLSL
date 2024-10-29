@@ -18,7 +18,8 @@
 #define MATERIAL_TYPE_cook_torrance_two_color_spec_tint 10
 #define MATERIAL_TYPE_car_paint 11
 #define MATERIAL_TYPE_two_lobe_phong_tint_map 12
-#define MATERIAL_TYPE_cook_torrance_ggx_pbr_maps 13
+#define MATERIAL_TYPE_cook_torrance_ggx 13
+#define MATERIAL_TYPE_cook_torrance_ggx_pbr_maps 14
 
 
 // all material models must define these 4 functions
@@ -204,7 +205,15 @@ PARAM(bool, no_dynamic_lights);
 #endif
 
 //*****************************************************************************
-// cook torrance with "pbr" maps
+// cook torrance with ggx distribution
+//*****************************************************************************
+#if MATERIAL_TYPE(material_type) == MATERIAL_TYPE_cook_torrance_ggx
+#include "cook_torrance_ggx.fx"
+#define NO_ALPHA_TO_COVERAGE
+#endif
+
+//*****************************************************************************
+// cook torrance with ggx distribution and "pbr" maps
 //*****************************************************************************
 #if MATERIAL_TYPE(material_type) == MATERIAL_TYPE_cook_torrance_ggx_pbr_maps
 #include "cook_torrance_ggx.fx"
