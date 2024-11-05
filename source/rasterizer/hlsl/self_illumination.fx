@@ -58,10 +58,58 @@ float3 calc_self_illumination_plasma_ps(
 	float noise_a=	sample2D(noise_map_a, transform_texcoord(texcoord, noise_map_a_xform)).r;
 	float noise_b=	sample2D(noise_map_b, transform_texcoord(texcoord, noise_map_b_xform)).r;
 
-	float diff= 1.0f - abs(noise_a-noise_b);
+	float diff= max(1.0f - abs(noise_a-noise_b), 0.0);
 	float medium_diff= pow(diff, thinness_medium);
 	float sharp_diff= pow(diff, thinness_sharp);
 	float wide_diff= pow(diff, thinness_wide);
+
+	wide_diff-= medium_diff;
+	medium_diff-= sharp_diff;
+	
+	float3 color= color_medium.rgb*color_medium.a*medium_diff + color_sharp.rgb*color_sharp.a*sharp_diff + color_wide.rgb*color_wide.a*wide_diff;
+	
+	return color*alpha*self_illum_intensity;
+}
+
+float3 calc_self_illumination_plasma_palettized_ps(
+	in float2 texcoord,
+	inout float3 albedo,
+	in float3 view_dir)
+{
+	float alpha=	sample2D(alpha_mask_map, transform_texcoord(texcoord, alpha_mask_map_xform)).a;
+	float noise_a=	sample2D(noise_map_a, transform_texcoord(texcoord, noise_map_a_xform)).r;
+	float noise_b=	sample2D(noise_map_b, transform_texcoord(texcoord, noise_map_b_xform)).r;
+
+	float diff= max(0, 1.0f - abs(noise_a-noise_b));
+	float medium_diff= pow(diff, thinness_medium);
+	float sharp_diff= pow(diff, thinness_sharp);
+	float wide_diff= pow(diff, thinness_wide);
+
+	wide_diff-= medium_diff;
+	medium_diff-= sharp_diff;
+	
+	float3 color= color_medium.rgb*color_medium.a*medium_diff + color_sharp.rgb*color_sharp.a*sharp_diff + color_wide.rgb*color_wide.a*wide_diff;
+	
+	return color*alpha*self_illum_intensity;
+}
+
+float3 calc_self_illumination_plasma_new_ps(
+	in float2 texcoord,
+	inout float3 albedo,
+	in float3 view_dir)
+{
+	float 	alpha=		sample2D(alpha_mask_map, transform_texcoord(texcoord, alpha_mask_map_xform)).a;
+	float 	noise_a=	sample2D(noise_map_a, transform_texcoord(texcoord, noise_map_a_xform)).r;
+	float 	noise_b=	sample2D(noise_map_b, transform_texcoord(texcoord, noise_map_b_xform)).r;
+
+	float 	diff= 	max(0, 1.0f - abs(noise_a - noise_b));
+	float 	diff2=  max(0, 1.0f - abs(noise_b - noise_a));
+
+	float 	plasma = diff < 0.5 ? diff : diff2;
+
+	float medium_diff= pow(plasma, thinness_medium);
+	float sharp_diff= pow(plasma, thinness_sharp);
+	float wide_diff= pow(plasma, thinness_wide);
 
 	wide_diff-= medium_diff;
 	medium_diff-= sharp_diff;
@@ -225,7 +273,7 @@ float3 calc_self_illumination_transparent_ps(
 
 PARAM_SAMPLER_2D(tendril_map);
 PARAM(float4, tendril_map_xform);
-PARAM(float, albedo_blend);
+PARAM(float, albedo_blend_power);
 
 float3 calc_self_illumination_plasma_tendrils_ps(
 	in float2 texcoord,
@@ -237,7 +285,7 @@ float3 calc_self_illumination_plasma_tendrils_ps(
 	float noise_a=	sample2D(noise_map_a, transform_texcoord(texcoord, noise_map_a_xform)).r;
 	float noise_b=	sample2D(noise_map_b, transform_texcoord(texcoord, noise_map_b_xform)).r;
 
-	float4 diff= 1.0f - abs(noise_a-noise_b);
+	float diff= 1.0f - abs(noise_a-noise_b);
 	tendril*=4.0f;
 	diff*=tendril;
 	diff>0.5 ? diff : 0;
@@ -251,6 +299,7 @@ float3 calc_self_illumination_plasma_tendrils_ps(
 	medium_diff-= sharp_diff;
 	
 	float3 color= color_medium.rgb*color_medium.a*medium_diff + color_sharp.rgb*color_sharp.a*sharp_diff + color_wide.rgb*color_wide.a*wide_diff;
-	albedo=albedo*albedo_blend;
+	albedo=albedo*albedo_blend_power;
 	return color*alpha+albedo*self_illum_intensity;
 }
+

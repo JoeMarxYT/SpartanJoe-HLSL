@@ -22,6 +22,7 @@
 #define MATERIAL_TYPE_cook_torrance_ggx_pbr_maps 14
 
 
+
 // all material models must define these 4 functions
 #define CALC_MATERIAL(material) calc_material_##material##_ps
 #define CALC_MATERIAL_SPECULAR_PARAMETERS(material) calc_material_specular_parameters_##material##_ps

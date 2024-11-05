@@ -64,7 +64,7 @@ UNSIGNED_INVERT
 			(2.0*v-1.0)																//Unused as of now
 
 	#define EXPAND_NEGATIVE(v)													\
-			(-2.0*v)																// Unused as of now
+			(-2.0*v+1)																// Unused as of now
 
 /* Output processing clamped */
 #define CLAMP_MULTIPLY(a, b)													\
