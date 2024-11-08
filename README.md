@@ -3,6 +3,11 @@ If you use other hlsl mods make sure to modify both this set and the other for c
 As porting to newer games: It's likely compatible with Halo 3 ODST and maybe ElDewrito. Reach+, you will have to do extra work.
 There's also sample tags you can use you can use (thanks to RynoMods for porting the portable shield)
 
+## Functions:
+- Cook-Torrance GGX (base and PBR maps);
+- plasma mask offset (both Halo 1 and Halo 2 implementations);
+- multipurpose map support;
+
 ## How to set up
 ### We will set things up in the `render_method_defintion` tag 
 #### Steps 1 and 2 are for any custom shader function you made yourself
@@ -41,4 +46,5 @@ The commands first compile the explicit shaders then dump the render method opti
 Notes:
 - The Material Models "Cook Torrance GGX" and its PBR map derivative now work
 - any tag that uses the functions in `transparent_generic.fx` is strongly recommended to have `calc_self_illumination_transparent_ps` setup in the same `render_method_definition` tag as well
-- you can to port the hlsl functions to ODST and newer games although as previously stated porting them to Reach+ games require more effort 
+- you can to port the hlsl functions to ODST and newer games although as previously stated porting them to Reach+ games require more effort
+
