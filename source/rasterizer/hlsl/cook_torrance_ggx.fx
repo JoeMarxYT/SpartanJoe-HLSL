@@ -10,11 +10,11 @@ Note: GGX IS NOW working as intended.
 =============================================
 */
 
-
 //****************************************************************************
-// Cook Torrance GGX Material Model parameters
+// Cook-Torrance Material Model parameters
 //****************************************************************************
 
+#include "additional_parameters.fx"
 
 PARAM(float3,	fresnel_color);				//reflectance at normal incidence
 PARAM(float,	roughness);					//roughness
@@ -41,6 +41,18 @@ PARAM_SAMPLER_2D(g_sampler_c78d78);					//pre-integrated texture
 #define A0_88			0.886226925f
 #define A2_10			1.023326708f
 #define A6_49			0.495415912f
+
+//****************************************************************************
+// Cook-Torrance GGX Constants
+//****************************************************************************
+
+#define pi 				3.14159265358979323846264338327950
+#define epsilon 		0.000000001f
+#define epsilon_legacy	0.00001f
+
+#define D				distribution
+#define G				geometry_term	
+#define F 				specular_fresnel_color
 
 // Cook Torrance GGX parameters
 float get_material_cook_torrance_ggx_specular_power(float power_or_roughness)
@@ -92,19 +104,21 @@ float3 get_analytical_specular_multiplier_cook_torrance_ggx_pbr_maps_ps(float sp
 
 
 //*****************************************************************************
-// GGX Functions
+// Cook-Torrance GGX Functions
 //*****************************************************************************
+float Distribution_GGX(in float n_dot_h, in float a)
+{
+				float a2 = pow(a, 2.0f);
 
-float GGX_Smith (float n_dot_x, in float a2)
-{ 
-	n_dot_x = max(n_dot_x, 0);
-    float nom   = 2.0f*n_dot_x;
-    float denom = (n_dot_x + sqrt(a2 + (1.0 - a2) * pow(n_dot_x, 2.0f)));
-	
-    return nom / denom;
+				float NH2 = pow(n_dot_h, 2.0f);
+				float D_denom = NH2 * (a2 - 1.0f) + 1;
+					  D_denom = pow(D_denom, 2.0f);
+
+				return a2/(pi*pow(D_denom, 2.0f)+epsilon);
+
 }
 
-float GGX_Schlick (float n_dot_x, in float a)
+float Geometry_GGX_Schlick(in float n_dot_x, in float a)
 	{
 			n_dot_x = max(n_dot_x, 0);
 
@@ -115,6 +129,47 @@ float GGX_Schlick (float n_dot_x, in float a)
 			return nom / denom;
 	}
 
+float3 Fresnel_Fast(in float3 specular_albedo_color, in float h_dot_v)
+{
+			float 	f0= min(specular_albedo_color, 0.999f);
+		  			f0 = 1 + f0 / INVERT(f0);
+			return 	f0 + INVERT(f0)*pow(INVERT(h_dot_v), 5.0f);
+}
+
+//*****************************************************************************
+// Cook-Torrance Legacy Functions
+// 
+// Note: Implemented as pixel shaders quick comparison
+//*****************************************************************************
+float Distribution_Legacy(in float4 spatially_varying_material_parameters, in float n_dot_h)
+{
+	float t_roughness= max(spatially_varying_material_parameters.a, 0.05f);
+	float m_squared= t_roughness*t_roughness;			
+	float cosine_alpha_squared = n_dot_h * n_dot_h;
+
+	return exp((cosine_alpha_squared-1)/(m_squared*cosine_alpha_squared))/(m_squared*cosine_alpha_squared*cosine_alpha_squared+epsilon_legacy);
+}
+
+float Geometry_Legacy(in float n_dot_h, in float min_dot, in float v_dot_h)
+{
+	float G_Legacy1 = 2 * n_dot_h * min_dot;
+	float G_Legacy2 = (saturate(v_dot_h) + epsilon_legacy);
+
+	return G_Legacy1 / G_Legacy2;
+}
+
+float3 Fresnel_Legacy(in float3 specular_albedo_color, in float v_dot_h)
+{
+		float3 f0= min(specular_albedo_color, 0.999f);
+		float3 sqrt_f0 = sqrt( f0 );
+		float3 n = ( 1.f + sqrt_f0 ) / ( 1.0 - sqrt_f0 );
+		float3 g = sqrt( n*n + v_dot_h*v_dot_h - 1.f );
+		float3 gpc = g + v_dot_h;
+		float3 gmc = g - v_dot_h;
+		float3 r = (v_dot_h*gpc-1.f) / (v_dot_h*gmc+1.f);
+
+		return ( 0.5f * ( (gmc*gmc) / (gpc*gpc + epsilon_legacy) ) * ( 1.f + r*r ));
+}
 
 //*****************************************************************************
 // Analytical Cook-Torrance GGX for point light source only
@@ -149,56 +204,57 @@ void calc_material_analytic_specular_cook_torrance_ggx_ps(
 		spatially_varying_material_parameters= sampleBiasGlobal2D(material_texture, transform_texcoord(texcoord, material_texture_xform));				
 	}
 
-	specular_albedo_color= diffuse_albedo_color*spatially_varying_material_parameters.g + fresnel_color * (1-spatially_varying_material_parameters.g);
+	specular_albedo_color= lerp(diffuse_albedo_color, fresnel_color, INVERT(spatially_varying_material_parameters.g));
 
-	float3 half_vector = normalize( view_dir + light_dir );
-	float n_dot_h = dot( normal_dir, half_vector );
-	float v_dot_h = dot( view_dir, half_vector);
-	float v_dot_n = dot( view_dir, normal_dir);
 	float n_dot_l = dot( normal_dir, light_dir );
-	float l_dot_n = dot( light_dir, normal_dir);	
 	float n_dot_v = dot( normal_dir, view_dir );
-	float min_dot = min( n_dot_l, n_dot_v );
-	float pi = 3.14159265358979323846264338327950;
 	float a = pow(spatially_varying_material_parameters.a, 2.0);
+
+	// compute geometric attenuation
+	float3 half_vector = normalize( view_dir + light_dir );
+	float n_dot_h = dot( normal_dir, half_vector);
+	float v_dot_h = dot( view_dir, half_vector);
+	float h_dot_v = dot( half_vector, light_dir);
 
 
 		// D (Normal Distributpbion Function): GGX/Trowbridge-Reitz
 			// alpha^2 / π((n⋅h)^2 * (α2−1)+1)^2
-				float a2 = pow(a, 2.0f);
-
-				float NH2 = pow(n_dot_h, 2.0f);
-				float D_denom = NH2 * (a2 - 1.0f) + 1;
-					  D_denom = pow(D_denom, 2.0f);
-
-				float distribution = a2/(pi*pow(D_denom, 2.0f)+0.00001f);
+				float distribution;
+				D = Distribution_GGX(n_dot_h, a);
 
 		// G (Geometry Function): GGX-Smith
 
-				float G1 = GGX_Schlick(n_dot_v, a);
-				float G2 = GGX_Schlick(n_dot_l, a);
+				float G1 = Geometry_GGX_Schlick(n_dot_v, a);
+				float G2 = Geometry_GGX_Schlick(n_dot_l, a);
+				float geometry_term;
 
-				float geometry_term= G1*G2;
+				G= G1*G2;
 
 		// F (Fresnel Function): Default Halo 3 Fresnel model
-				float3 f0= min(specular_albedo_color, 0.999f);
-				float3 sqrt_f0 = sqrt( f0 );
-				float3 n = ( 1.0f + sqrt_f0 ) / ( 1.0 - sqrt_f0 );
-				float3 g = sqrt( n*n + v_dot_h*v_dot_h - 1.f );
-				float3 gpc = g + v_dot_h;
-				float3 gmc = g - v_dot_h;
-				float3 r = (v_dot_h*gpc-1.f) / (v_dot_h*gmc+1.f);
-				specular_fresnel_color= ( 0.5f * ( (gmc*gmc+0.0001f) / (gpc*gpc + 0.00001f) ) * ( 1.f + r*r ));
-		
+				
+				F = Fresnel_Legacy(specular_albedo_color, h_dot_v);
+				/* 
+					float3 f0= min(specular_albedo_color, 0.999f);
+					float3 sqrt_f0 = sqrt( f0 );
+					float3 n = ( 1.0f + sqrt_f0 ) / ( 1.0 - sqrt_f0 );
+					float3 g = sqrt( n*n + v_dot_h*v_dot_h - 1.f );
+					float3 gpc = g + v_dot_h;
+					float3 gmc = g - v_dot_h;
+					float3 r = (v_dot_h*gpc-1.f) / (v_dot_h*gmc+1.f);
+					
+					F= ( 0.5f * ( (gmc*gmc+epsilon) / (gpc*gpc + epsilon) ) * ( 1.f + r*r ));
+				*/
 
 		//
-				float3 DG = distribution*geometry_term;
-				float CT_Denom = (n_dot_l)*(n_dot_v); // Cook Torrance Denominator
+				float3 DG = D*G;
+				float CT_Denom = (n_dot_l)*(n_dot_v) + epsilon; // Cook Torrance Denominator
 
 				
 		//puting it all together
 		analytic_specular_radiance= (specular_fresnel_color/4.0f)*(specular_tint*(DG/CT_Denom));
-		analytic_specular_radiance= saturate(analytic_specular_radiance) * vertex_n_dot_l * light_irradiance;
+		analytic_specular_radiance= specular_tint * analytic_specular_radiance;
+		analytic_specular_radiance=  min(analytic_specular_radiance, vertex_n_dot_l + 1.0f) * vertex_n_dot_l * light_irradiance;
+
 
 
 
@@ -224,63 +280,67 @@ void calc_material_analytic_specular_cook_torrance_ggx_pbr_maps_ps(
 
 	// the following parameters can be supplied in the material texture
 	// r: specular coefficient
-	// g: roughness
+	// g: albedo blend
 	// b: ambient occlusion
-	// a: unused
+	// a: roughness
 
 	float4 pbr_texture = sampleBiasGlobal2D(material_texture, transform_texcoord(texcoord, material_texture_xform));
-	spatially_varying_material_parameters= pbr_texture.xxyy * float4(specular_coefficient, 1, 1, roughness);
+	spatially_varying_material_parameters= pbr_texture.xyyy * float4(specular_coefficient, albedo_blend, 1, roughness);
+
+	spatially_varying_material_parameters.z = environment_map_specular_contribution;
+
 
 	float ambient_occlusion = pbr_texture.b;
 	specular_albedo_color= diffuse_albedo_color * spatially_varying_material_parameters.g + fresnel_color * (1-spatially_varying_material_parameters.g);
 
 	float n_dot_l = dot( normal_dir, light_dir );
 	float n_dot_v = dot( normal_dir, view_dir );
-	float pi = 3.14159265358979323846264338327950;
 	float a = pow(spatially_varying_material_parameters.a, 2.0);
 
 	// compute geometric attenuation
 	float3 half_vector = normalize( view_dir + light_dir );
-	float n_dot_h = dot( normal_dir, half_vector );
-	float v_dot_h = dot( view_dir, half_vector); 
+	float n_dot_h = dot( normal_dir, half_vector);
+	float v_dot_h = dot( view_dir, half_vector);
+	float h_dot_v = dot( half_vector, light_dir);
+
 
 
 		// D (Normal Distributpbion Function): GGX/Trowbridge-Reitz
 			// alpha^2 / π((n⋅h)^2 * (α2−1)+1)^2
-				float a2 = pow(a, 2.0f);
-
-				float NH2 = pow(n_dot_h, 2.0f);
-				float D_denom = NH2 * (a2 - 1.0f) + 1;
-					  D_denom = pow(D_denom, 2.0f);
-
-				float distribution = a2/(pi*pow(D_denom, 2.0f)+0.00001f);
+				float distribution;
+				D = Distribution_GGX(n_dot_h, a);
 
 		// G (Geometry Function): GGX-Smith
 
-				float G1 = GGX_Schlick(n_dot_v, a);
-				float G2 = GGX_Schlick(vertex_n_dot_l, a);
-
-				float geometry_term= G1*G2;
+				float G1 = Geometry_GGX_Schlick(n_dot_v, a);
+				float G2 = Geometry_GGX_Schlick(n_dot_l, a);
+				float geometry_term;
+				
+				G= G1*G2;
 
 		// F (Fresnel Function): Default Halo 3 Fresnel model
-				float3 f0= min(specular_albedo_color, 0.999f);
-				float3 sqrt_f0 = sqrt( f0 );
-				float3 n = ( 1.0f + sqrt_f0 ) / ( 1.0 - sqrt_f0 );
-				float3 g = sqrt( n*n + v_dot_h*v_dot_h - 1.f );
-				float3 gpc = g + v_dot_h;
-				float3 gmc = g - v_dot_h;
-				float3 r = (v_dot_h*gpc-1.f) / (v_dot_h*gmc+1.f);
-				specular_fresnel_color= ( 0.5f * ( (gmc*gmc+0.0001f) / (gpc*gpc + 0.00001f) ) * ( 1.f + r*r ));
+				F = Fresnel_Legacy(specular_albedo_color, h_dot_v);
+				/* 
+					float3 f0= min(specular_albedo_color, 0.999f);
+					float3 sqrt_f0 = sqrt( f0 );
+					float3 n = ( 1.0f + sqrt_f0 ) / ( 1.0 - sqrt_f0 );
+					float3 g = sqrt( n*n + v_dot_h*v_dot_h - 1.f );
+					float3 gpc = g + v_dot_h;
+					float3 gmc = g - v_dot_h;
+					float3 r = (v_dot_h*gpc-1.f) / (v_dot_h*gmc+1.f);
+					
+					F= ( 0.5f * ( (gmc*gmc+epsilon) / (gpc*gpc + epsilon) ) * ( 1.f + r*r ));
+				*/
 		
 
 		//
 				float3 DG = distribution*geometry_term;
-				float CT_Denom = (vertex_n_dot_l)*(n_dot_v); // Cook Torrance Denominator
-
+				float CT_Denom = (n_dot_l)*(n_dot_v) + epsilon; // Cook Torrance Denominator
 				
 		//puting it all together
 		analytic_specular_radiance=  (specular_fresnel_color/4.0f)*(specular_tint*(DG/CT_Denom));
-		analytic_specular_radiance= (ambient_occlusion * specular_tint*saturate(analytic_specular_radiance)) * vertex_n_dot_l * light_irradiance;
+		analytic_specular_radiance= ambient_occlusion * specular_tint*analytic_specular_radiance;
+		analytic_specular_radiance=  min(analytic_specular_radiance, vertex_n_dot_l + 1.0f) * vertex_n_dot_l * light_irradiance;
 		
 
 
