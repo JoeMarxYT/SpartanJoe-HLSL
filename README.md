@@ -1,6 +1,6 @@
 ## Intro
-If you use other hlsl mods make sure to modify both this set and the other for compatibility. Either way drop the fx files in "...\H3EK\source\rasterizer\hlsl"
-As porting to newer games: It's likely compatible with Halo 3 ODST and maybe ElDewrito. Reach+, you will have to do extra work.
+If you use other hlsl mods make sure to modify both this set and the other for compatibility. Either way drop the fx files in "...\H3EK\source\rasterizer\hlsl".
+As for porting to newer games: It's likely compatible with Halo 3 ODST and maybe ElDewrito. Reach+, you will have to do extra work.
 There's also sample tags you can use you can use (thanks to RynoMods for porting the portable shield)
 
 ## Functions:
@@ -31,7 +31,7 @@ Return to the `render_method_definition` tag you modified then link the `render_
       tool shaders win
       tool dump-render-method-toptions
       start tool generate-templates win shaders\halogram
-      start tool generate-templates win shaders\halogram
+      start tool generate-templates win shaders\shader
 
    ```
 The commands first compile the explicit shaders then dump the render method options and finally the templates in separate windows.
