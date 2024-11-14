@@ -47,4 +47,4 @@ Notes:
 - The Material Models "Cook Torrance GGX" and its PBR map derivative now work albeit the pixel shader `FresnelFast` causes shader artifacts when used
 - any tag that uses the functions in `transparent_generic.fx` is strongly recommended to have `calc_self_illumination_transparent_ps` setup in the same `render_method_definition` tag
 - you can to port the hlsl functions to ODST and newer games although as previously stated porting them to Reach+ games require more effort
-
+- all plasma mask offset functions are going to be unified in one function
