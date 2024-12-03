@@ -23,22 +23,26 @@ PARAM(float4, multipurpose_map_xform);
 
 #define INVERT_OR_NOT(v)			invert_detail_mask ? (1-v) : v				\
 
-#define DECLARE_DETAIL_MASK(v, detail_channel_index, invert_detail_mask)		\
+void declare_detail_mask(
+in uint detail_channel_index,
+in bool invert_detail_mask,
+in float multipurpose, 
+out float detail_mask
+) 
 			if(detail_channel_index = 0)										\
-					{	v = 1	}; 												\
+					{	detail_mask = 1	}; 												\
 																				\
 			if(detail_channel_index = 1)										\
-					{	v = INVERT_OR_NOT(mask_specular)	};					\
+					{	detail_mask = INVERT_OR_NOT(mask_specular)	};					\
 																				\
 			if(detail_channel_index = 2)										\
-					{	v = INVERT_OR_NOT(mask_emmisive)	};					\
+					{	detail_mask = INVERT_OR_NOT(mask_emmisive)	};					\
 																				\
 			if(detail_channel_index = 3)										\
-					{	v = INVERT_OR_NOT(mask_cc0)	};							\
+					{	detail_mask = INVERT_OR_NOT(mask_cc0)	};							\
 																				\
 			if(detail_channel_index = 4)										\
-					{	v = INVERT_OR_NOT(mask_cc1)	};							\
-
+					{	detail_mask = INVERT_OR_NOT(mask_cc1)	};							\
 
 
 void calc_albedo_two_cc_from_multipurpose_ps(
