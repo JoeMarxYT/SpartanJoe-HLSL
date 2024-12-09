@@ -81,24 +81,24 @@ void calc_albedo_plasma_mask_offset_ps(
 
     // R0= INVERT(C0a)*T2a + C0a*T0a   // linear interpolation
     // R0a= INVERT(C0b)*1/2 + C0b*T1a  // T3/2 is accemptable
-    		R0b = lerp(T2a, T0a, plasma_factor1);
-			R0a = lerp(0.5, T1a, plasma_factor2);
+    		R0b = saturate(lerp(T2a, T0a, plasma_factor1));
+			R0a = saturate(lerp(0.5, T1a, plasma_factor2));
 
     // ---
     // // Stage 1: Preparation Stage
 
     // R0= T3a*1/2 + INVERT(T3a)*R0    // T3a/2
     // R0a= T3a*1/2 + INVERT(T3a)*R0a
-			R0b = saturate(T3a/2.0 + INVERT(T3a)*R0b);
-		    R0a = saturate(T3a/2.0 + INVERT(T3a)*R0b);
+			R0b = (T3a/2.0) + (INVERT(T3a)*R0b);
+		    R0a = (T3a/2.0) + (INVERT(T3a)*R0b);
 
     // ---
     // // Stage 2: Half-Bias Stage
 
     // R0= R0 - HALF_BIAS(R0a)
     // R0a= R0a - HALF_BIAS(R0b)
-			R0b = saturate((R0b) - HALF_BIAS(R0a));
-			R0a = saturate((R0a) - HALF_BIAS(R0b));
+			R0b = (R0b) - HALF_BIAS(R0a);
+			R0a = (R0a) - HALF_BIAS(R0b);
 
     // ---
     // // Stage 3: Plasma Scale By 4 and Glow Stage
@@ -119,14 +119,14 @@ void calc_albedo_plasma_mask_offset_ps(
 			D1 = glow_and_tint ? color_1 : D1;
 
 			R0a= MUX((R0a*R0a), (R0b*R0b));
-			R0a= 4.0*saturate(R0a);
+			R0a= (4.0*R0a);
     // ---
     // // Stage 4: Mask Attenuation and Plasma Sharpening Stage
     // C0a = $plasma_factor3
 
     // T3= OUT_SCALE_BY_4(T3*C0a)				// Addresses visibility issues
     // R0a= 0 mux EXPAND(R0a)*EXPAND(R0a)
-    		T3	= 4.0*T3*plasma_factor3;
+    		T3	= (4.0*T3*plasma_factor3);
 			if(glow_and_tint)
 			{
 				T3 = color_0.rgb*T3;
@@ -162,9 +162,9 @@ void calc_albedo_plasma_mask_offset_ps(
 
     // R0= R0a*T3 + D1*R1
 		
-			R0 = saturate(R0a*T3 + D1*INVERT(T3a));
+			R0 = (R0a*T3) + (D1*INVERT(T3a));
 				if(masked){
-                        R0= saturate(R0a*T3 + D1*(4.0*plasma_mask.rgb));
+                        R0= (R0a*T3) + (D1*(4.0*plasma_mask.rgb));
                         }
 
     // ---

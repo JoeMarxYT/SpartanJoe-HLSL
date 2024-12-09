@@ -258,18 +258,6 @@ float3 calc_self_illumination_palette_ps(
 	return self_illum;
 }
 
-PARAM(float, plasma_illumination);
-
-float3 calc_self_illumination_transparent_ps(
-	in float2 texcoord,
-	inout float3 albedo,
-	in float3 view_dir)
-{
-	// Concocted specifically for my transparent_generic shaderss
-	float3 self_illum= albedo * plasma_illumination;
-	
-	return(self_illum);
-}
 
 PARAM_SAMPLER_2D(tendril_map);
 PARAM(float4, tendril_map_xform);

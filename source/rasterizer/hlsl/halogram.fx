@@ -43,7 +43,7 @@
 
 #include "misc_attr_animation.fx"
 #include "albedo.fx"
-#include "transparent_generic.fx"
+#include "plasma_mask_offset.fx"
 #include "parallax.fx"
 #include "warp.fx"
 #include "bump_mapping.fx"

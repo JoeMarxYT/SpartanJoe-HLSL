@@ -17,32 +17,28 @@ PARAM_SAMPLER_2D(multipurpose_map);
 PARAM(float4, multipurpose_map_xform);
 
 #define mask_specular 				xbox_order ? multipurpose.r : multipurpose.b
-#define mask_emmisive 				multipurpose.g
+#define mask_emissive 				multipurpose.g
 #define mask_cc0					xbox_order ? multipurpose.b : multipurpose.a
 #define mask_cc1					xbox_order ? multipurpose.a : multipurpose.a
 
 #define INVERT_OR_NOT(v)			invert_detail_mask ? (1-v) : v				\
 
-void declare_detail_mask(
-in uint detail_channel_index,
-in bool invert_detail_mask,
-in float multipurpose, 
-out float detail_mask
-) 
+#define DECLARE_DETAIL_MASK(v, detail_channel_index, invert_detail_mask)		\
 			if(detail_channel_index = 0)										\
-					{	detail_mask = 1	}; 												\
+					{	v = 1	}; 												\
 																				\
 			if(detail_channel_index = 1)										\
-					{	detail_mask = INVERT_OR_NOT(mask_specular)	};					\
+					{	v = INVERT_OR_NOT(mask_specular)	};					\
 																				\
 			if(detail_channel_index = 2)										\
-					{	detail_mask = INVERT_OR_NOT(mask_emmisive)	};					\
+					{	v = INVERT_OR_NOT(mask_emmisive)	};					\
 																				\
 			if(detail_channel_index = 3)										\
-					{	detail_mask = INVERT_OR_NOT(mask_cc0)	};							\
+					{	v = INVERT_OR_NOT(mask_cc0)	};							\
 																				\
 			if(detail_channel_index = 4)										\
-					{	detail_mask = INVERT_OR_NOT(mask_cc1)	};							\
+					{	v = INVERT_OR_NOT(mask_cc1)	};							\
+
 
 
 void calc_albedo_two_cc_from_multipurpose_ps(
@@ -71,7 +67,7 @@ void calc_albedo_two_cc_from_multipurpose_ps(
 					}
 			if(detail_channel_index = 2)
 					{	
-						detail_mask = INVERT_OR_NOT(mask_emmisive);
+						detail_mask = INVERT_OR_NOT(mask_emissive);
 					}
 			if(detail_channel_index = 3)
 					{	
@@ -108,8 +104,8 @@ float3 calc_self_illumination_from_multipurpose_ps(
 	inout float3 albedo,
 	in float3 view_dir)
 {
-    float mask = sample2D(multipurpose_map, transform_texcoord(texcoord, multipurpose_map_xform)).g;
-	float3 result= (albedo*self_illum_color)*mask;
+    float4 multipurpose = sample2D(multipurpose_map, transform_texcoord(texcoord, multipurpose_map_xform));
+	float3 result= (albedo*self_illum_color)*mask_emissive;
 	result *= self_illum_intensity;
     
 	return result;
