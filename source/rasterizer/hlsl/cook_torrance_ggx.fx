@@ -669,7 +669,7 @@ void calc_material_cook_torrance_ggx_base(
 		envmap_specular_reflectance_and_roughness.xyz= fresnel_analytical * spatially_varying_material_parameters.b * specular_mask;		// ###ctchou $TODO this ain't right
 				
 		float3 KD = INVERT(fresnel_analytical) * INVERT(spatially_varying_material_parameters.g) + 0 * spatially_varying_material_parameters.g;
-		diffuse_radiance= diffuse_radiance * KD * spatially_varying_material_parameters.r * prt_ravi_diff.x;
+		diffuse_radiance= diffuse_radiance * KD * INVERT(spatially_varying_material_parameters.g) * spatially_varying_material_parameters.r * prt_ravi_diff.x;
 		diffuse_radiance= (simple_light_diffuse_light + diffuse_radiance);
 		specular_color*= prt_ravi_diff.z * spatially_varying_material_parameters.r;		
 		
@@ -853,7 +853,7 @@ void calc_material_cook_torrance_ggx_pbr_maps_ps(
 		envmap_specular_reflectance_and_roughness.xyz= fresnel_analytical * spatially_varying_material_parameters.b * specular_mask;		// ###ctchou $TODO this ain't right
 				
 		float3 KD = INVERT(fresnel_analytical) * INVERT(spatially_varying_material_parameters.g) + 0 * spatially_varying_material_parameters.g;
-		diffuse_radiance= diffuse_radiance * KD * spatially_varying_material_parameters.r * prt_ravi_diff.x;
+		diffuse_radiance= diffuse_radiance * KD * INVERT(spatially_varying_material_parameters.g) * spatially_varying_material_parameters.r * prt_ravi_diff.x;
 		diffuse_radiance= (simple_light_diffuse_light + diffuse_radiance);
 		specular_color*= prt_ravi_diff.z * spatially_varying_material_parameters.r;		
 		
