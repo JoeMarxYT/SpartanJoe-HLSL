@@ -6,11 +6,11 @@
 /*
 =============================================
 Created by SpartanJoe193
-last modified on November 14th, 2024 2:51 AM GMT+8
+last modified on December 13th, 2024 10:27 AM GMT+8
 =============================================
 */
 
-// We need to redefine some shit first because Halo 1 handles this differenely
+// We need to redefine some shit first
 #undef SRCCOLOR
 #undef SRCALPHA
 
@@ -60,10 +60,10 @@ void calc_albedo_plasma_mask_offset_ps(
 	in float4 misc)
 {
 
-		float4 plasma_mask = 		saturate(sample2D(plasma_mask_map, transform_texcoord(texcoord, plasma_mask_map_xform)));
-		float T2a = 				saturate(sample2D(plasma_offset_map, transform_texcoord(texcoord, plasma_offset_map_xform)).a);
-		float T1a = 				saturate(sample2D(plasma_noise_map_b, transform_texcoord(texcoord, plasma_noise_map_b_xform)).a);
-		float T0a = 				saturate(sample2D(plasma_noise_map_a, transform_texcoord(texcoord, plasma_noise_map_a_xform)).a);
+		float4 plasma_mask = 		(sample2D(plasma_mask_map, transform_texcoord(texcoord, plasma_mask_map_xform)));
+		float T2a = 				(sample2D(plasma_offset_map, transform_texcoord(texcoord, plasma_offset_map_xform)).a);
+		float T1a = 				(sample2D(plasma_noise_map_b, transform_texcoord(texcoord, plasma_noise_map_b_xform)).a);
+		float T0a = 				(sample2D(plasma_noise_map_a, transform_texcoord(texcoord, plasma_noise_map_a_xform)).a);
 
 	//  Both Halo 1 and Halo 2's imeplentations have been merged into one
 
@@ -81,24 +81,24 @@ void calc_albedo_plasma_mask_offset_ps(
 
     // R0= INVERT(C0a)*T2a + C0a*T0a   // linear interpolation
     // R0a= INVERT(C0b)*1/2 + C0b*T1a  // T3/2 is accemptable
-    		R0b = saturate(lerp(T2a, T0a, plasma_factor1));
-			R0a = saturate(lerp(0.5, T1a, plasma_factor2));
+    		R0b = (lerp(T2a, T0a, plasma_factor1));
+			R0a = (lerp(0.5, T1a, plasma_factor2));
 
     // ---
     // // Stage 1: Preparation Stage
 
     // R0= T3a*1/2 + INVERT(T3a)*R0    // T3a/2
     // R0a= T3a*1/2 + INVERT(T3a)*R0a
-			R0b = (T3a/2.0) + (INVERT(T3a)*R0b);
-		    R0a = (T3a/2.0) + (INVERT(T3a)*R0b);
+			R0b = T3a / 2.0 + INVERT(T3a) * R0b;
+		    R0a = T3a / 2.0 + INVERT(T3a) * R0a;
 
     // ---
     // // Stage 2: Half-Bias Stage
 
     // R0= R0 - HALF_BIAS(R0a)
     // R0a= R0a - HALF_BIAS(R0b)
-			R0b = (R0b) - HALF_BIAS(R0a);
-			R0a = (R0a) - HALF_BIAS(R0b);
+			R0b = abs(R0b - HALF_BIAS(R0a));
+			R0a = abs(R0a - HALF_BIAS(R0b));
 
     // ---
     // // Stage 3: Plasma Scale By 4 and Glow Stage
@@ -115,25 +115,24 @@ void calc_albedo_plasma_mask_offset_ps(
     // #endswitch
 
     // R0a= OUT_SCALE_BY_4(R0a*R0a mux R0b*R0b)
-        	D1 = D1= INVERT(color_0.a)*color_0.rgb + color_1*color_0.a;
+        	D1 = D1= (INVERT(color_0.a)*color_0.rgb) + (color_1*color_0.a);
 			D1 = glow_and_tint ? color_1 : D1;
 
 			R0a= MUX((R0a*R0a), (R0b*R0b));
-			R0a= (4.0*R0a);
+			R0a= saturate(4.0*R0a);
     // ---
     // // Stage 4: Mask Attenuation and Plasma Sharpening Stage
     // C0a = $plasma_factor3
 
     // T3= OUT_SCALE_BY_4(T3*C0a)				// Addresses visibility issues
     // R0a= 0 mux EXPAND(R0a)*EXPAND(R0a)
-    		T3	= (4.0*T3*plasma_factor3);
+    		T3	= (4.0*(T3*plasma_factor3));
 			if(glow_and_tint)
 			{
 				T3 = color_0.rgb*T3;
 			}
             
 			R0a= 	MUX(0.0, (EXPAND(R0a)*EXPAND(R0a))); 							// R0a
-            R0a=    saturate(R0a);
 
     // ---
     // // Stage 5: Mask Colorizing and Plasma Dulling stage
@@ -147,8 +146,7 @@ void calc_albedo_plasma_mask_offset_ps(
     // 			#endswitch
 
     // R0a= R0a + R0a*INVERT(R0a)
-    		R0a= R0a + R0a*INVERT(R0a); 		// R0a
-            R0a= saturate(R0a);
+    		R0a= R0a + R0a *  INVERT(R0a); 		// R0a
 
     // ---
     // // Stage 6: Plasma Masking Stage
@@ -161,10 +159,9 @@ void calc_albedo_plasma_mask_offset_ps(
     // #endswitch
 
     // R0= R0a*T3 + D1*R1
-		
-			R0 = (R0a*T3) + (D1*INVERT(T3a));
+			R0 = R0a * T3 + D1 * INVERT(T3a);
 				if(masked){
-                        R0= (R0a*T3) + (D1*(4.0*plasma_mask.rgb));
+                        R0= R0a * T3 + D1 * saturate(4.0*plasma_mask.rgb);
                         }
 
     // ---
@@ -174,12 +171,16 @@ void calc_albedo_plasma_mask_offset_ps(
     // SRCCOLOR= R0*C0a
     // SRCALPHA= 0
 
-    		SRCCOLOR = saturate(R0);
+    		SRCCOLOR = (R0);
 			SRCALPHA= 0;
 
 	apply_pc_albedo_modifier(albedo, normal);
 
 
 }
+
+#undef SRCCOLOR
+#undef SRCALPHA
+
 
 #endif
