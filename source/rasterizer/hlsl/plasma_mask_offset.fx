@@ -97,7 +97,7 @@ void calc_albedo_plasma_mask_offset_ps(
 
     // R0= R0 - HALF_BIAS(R0a)
     // R0a= R0a - HALF_BIAS(R0b)
-			R0b = abs(R0b - HALF_BIAS(R0a));
+			R0b = abs(R0b - HALF_BIAS(R0a));        // removes shading artifacts
 			R0a = abs(R0a - HALF_BIAS(R0b));
 
     // ---
