@@ -70,15 +70,7 @@ PARAM_SAMPLER_2D(g_sampler_c78d78);					//pre-integrated texture
 // Cook Torrance GGX parameters
 float get_material_cook_torrance_ggx_specular_power(float power_or_roughness)
 {
-	[branch]
-	if (roughness == 0)
-	{
-		return 0;
-	}
-	else
-	{
-		return 0.27291 * pow(roughness, -2.1973); // ###ctchou $TODO low roughness still needs slightly higher power - try tweaking
-	}
+	return 1.0f;
 }
 
 float3 get_diffuse_multiplier_cook_torrance_ggx_ps()
@@ -119,7 +111,7 @@ float3 get_analytical_specular_multiplier_cook_torrance_ggx_pbr_maps_ps(float sp
 //*****************************************************************************
 // Cook-Torrance GGX Functions
 //*****************************************************************************
-float Distribution_GGX(in float n_dot_h, in float roughness)
+float Distribution_Trowbridge_Reitz(in float n_dot_h, in float roughness)
 	{
 				float a2 = pow(max(roughness, 0.05), 4.0f);		// alpha = roughness^2 so this is roughness^4
 
@@ -137,8 +129,8 @@ float Geometry_GGX_Schlick(
 	{
 			n_dot_x = n_dot_x;
 
-			// float K = pow((roughness + 1.0f), 2.0f) / 8.0f;
-			float K = pow(max(roughness, 0.05), 4.0f) / 2.0f;
+			float K = pow((roughness + 1.0f), 2.0f) / 8.0f;
+			// float K = pow(max(roughness, 0.05), 4.0f) / 2.0f;
 
 		    float nom   = n_dot_x;
 			float denom = (n_dot_x) * (1.0f-K) + K + epsilon;
@@ -254,7 +246,7 @@ void calc_material_analytic_specular_cook_torrance_ggx_ps(
 
 		// D (Normal Distributpbion Function): GGX/Trowbridge-Reitz
 			// alpha^2 / π((n⋅h)^2 * (α2−1)+1)^2
-				D = Distribution_GGX(N_H, spatially_varying_material_parameters.a);
+				D = Distribution_Trowbridge_Reitz(N_H, spatially_varying_material_parameters.a);
 
 		// G (Geometry Function): GGX-Smith
 
@@ -314,7 +306,7 @@ void calc_material_analytic_specular_cook_torrance_ggx_pbr_maps_ps(
 
 		// D (Normal Distributpbion Function): GGX/Trowbridge-Reitz
 			// alpha^2 / π((n⋅h)^2 * (α2−1)+1)^2
-				D = Distribution_GGX(N_H, spatially_varying_material_parameters.a);
+				D = Distribution_Trowbridge_Reitz(N_H, spatially_varying_material_parameters.a);
 
 		// G (Geometry Function): GGX-Smith
 
@@ -669,8 +661,8 @@ void calc_material_cook_torrance_ggx_base(
 		envmap_specular_reflectance_and_roughness.xyz= fresnel_analytical * spatially_varying_material_parameters.b * specular_mask;		// ###ctchou $TODO this ain't right
 				
 		float3 KD = INVERT(fresnel_analytical) * INVERT(spatially_varying_material_parameters.g) + 0 * spatially_varying_material_parameters.g;
-		diffuse_radiance= diffuse_radiance * KD * INVERT(spatially_varying_material_parameters.g) * spatially_varying_material_parameters.r * prt_ravi_diff.x;
-		diffuse_radiance= (simple_light_diffuse_light + diffuse_radiance);
+		diffuse_radiance= diffuse_radiance * prt_ravi_diff.x;
+		diffuse_radiance= (simple_light_diffuse_light + diffuse_radiance) * spatially_varying_material_parameters.r * KD ;
 		specular_color*= prt_ravi_diff.z * spatially_varying_material_parameters.r;		
 		
 		//diffuse_color= 0.0f;
@@ -853,8 +845,8 @@ void calc_material_cook_torrance_ggx_pbr_maps_ps(
 		envmap_specular_reflectance_and_roughness.xyz= fresnel_analytical * spatially_varying_material_parameters.b * specular_mask;		// ###ctchou $TODO this ain't right
 				
 		float3 KD = INVERT(fresnel_analytical) * INVERT(spatially_varying_material_parameters.g) + 0 * spatially_varying_material_parameters.g;
-		diffuse_radiance= diffuse_radiance * KD * INVERT(spatially_varying_material_parameters.g) * spatially_varying_material_parameters.r * prt_ravi_diff.x;
-		diffuse_radiance= (simple_light_diffuse_light + diffuse_radiance);
+		diffuse_radiance= diffuse_radiance * prt_ravi_diff.x;
+		diffuse_radiance= (simple_light_diffuse_light + diffuse_radiance) * spatially_varying_material_parameters.r * KD ;
 		specular_color*= prt_ravi_diff.z * spatially_varying_material_parameters.r;		
 		
 		//diffuse_color= 0.0f;
