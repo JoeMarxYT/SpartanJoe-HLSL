@@ -105,11 +105,11 @@ float3 calc_self_illumination_plasma_new_ps(
 	float 	diff= 	max(0, 1.0f - abs(noise_a - noise_b));
 	float 	diff2=  max(0, 1.0f - abs(noise_b - noise_a));
 
-	float 	plasma = diff < 0.5 ? diff : diff2;
+	float 	plasma = diff < 0.5 ? diff : diff2;			// enhances the look
 
-	float medium_diff= pow(plasma, thinness_medium);
-	float sharp_diff= pow(plasma, thinness_sharp);
-	float wide_diff= pow(plasma, thinness_wide);
+	float medium_diff= pow(max(plasma, 0), thinness_medium);
+	float sharp_diff= pow(max(plasma, 0), thinness_sharp);
+	float wide_diff= pow(max(plasma, 0), thinness_wide);
 
 	wide_diff-= medium_diff;
 	medium_diff-= sharp_diff;

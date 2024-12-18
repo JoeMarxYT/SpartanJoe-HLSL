@@ -86,15 +86,7 @@ float3 get_analytical_specular_multiplier_cook_torrance_ggx_ps(float specular_ma
 
 float get_material_cook_torrance_ggx_pbr_maps_specular_power(float power_or_roughness)
 {
-	[branch]
-	if (roughness == 0)
-	{
-		return 0;
-	}
-	else
-	{
-		return 0.27291 * pow(roughness, -2.1973); // ###ctchou $TODO low roughness still needs slightly higher power - try tweaking
-	}
+	return 1.0f;
 }
 
 float3 get_diffuse_multiplier_cook_torrance_ggx_pbr_maps_ps()
@@ -233,9 +225,6 @@ void calc_material_analytic_specular_cook_torrance_ggx_ps(
 		spatially_varying_material_parameters= sampleBiasGlobal2D(material_texture, transform_texcoord(texcoord, material_texture_xform));				
 	}
 
-
-			float min_dot = min( N_L, N_V );
-
 		// float N_L = dot(normal_dir, light_dir);
 		// float N_V = dot(normal_dir, view_dir);
 		// float N_H = dot(normal_dir, H);
@@ -258,10 +247,8 @@ void calc_material_analytic_specular_cook_torrance_ggx_ps(
 
 		// F (Fresnel Function): Schlick Fast Approximation
 				F = Fresnel_Fast_New(V_H, fresnel_color, diffuse_albedo_color, spatially_varying_material_parameters.g, specular_albedo_color);
-				F = min_dot > 0 ? F : specular_albedo_color;
 
-		analytic_specular_radiance=  ((D*G*F)/(4.0*N_L*N_V+epsilon)) * F * N_L * light_irradiance;  //* DGF/4(n.l)(n.v)\
-		analytic_specular_radiance=	 min_dot > 0 ? analytic_specular_radiance : 0.00001f;
+		analytic_specular_radiance=  ((D*G*F)/(4.0*N_L*N_V+epsilon)) * F * N_L * light_irradiance;  //* DGF/4(n.l)(n.v)
 }
 
 
@@ -288,13 +275,9 @@ void calc_material_analytic_specular_cook_torrance_ggx_pbr_maps_ps(
 	// b: ambient occlusion
 	// a: unused
 
-	float4 pbr_texture = sampleBiasGlobal2D(material_texture, transform_texcoord(texcoord, material_texture_xform)).brgg;
-	spatially_varying_material_parameters= pbr_texture;
+	spatially_varying_material_parameters= sampleBiasGlobal2D(material_texture, transform_texcoord(texcoord, material_texture_xform)).brgg;
 
 	spatially_varying_material_parameters.z = environment_map_specular_contribution;
-
-			float min_dot = min( N_L, N_V );
-
 
 		// float N_L = dot(normal_dir, light_dir);
 		// float N_V = dot(normal_dir, view_dir);
@@ -318,10 +301,8 @@ void calc_material_analytic_specular_cook_torrance_ggx_pbr_maps_ps(
 
 		// F (Fresnel Function): Schlick Fast Approximation
 				F = Fresnel_Fast_New(V_H, fresnel_color, diffuse_albedo_color, spatially_varying_material_parameters.g, specular_albedo_color);
-				F = min_dot > 0 ? F : specular_albedo_color;
 
-		analytic_specular_radiance=  ((D*G*F)/(4.0*N_L*N_V+epsilon)) * F * N_L * light_irradiance;  //* DGF/4(n.l)(n.v)\
-		analytic_specular_radiance=	 min_dot > 0 ? analytic_specular_radiance : 0.00001f;
+		analytic_specular_radiance=  ((D*G*F)/(4.0*N_L*N_V+epsilon)) * F * N_L * light_irradiance;  //* DGF/4(n.l)(n.v)
 }
 
 //*****************************************************************************
@@ -661,9 +642,9 @@ void calc_material_cook_torrance_ggx_base(
 		envmap_specular_reflectance_and_roughness.xyz= fresnel_analytical * spatially_varying_material_parameters.b * specular_mask;		// ###ctchou $TODO this ain't right
 				
 		float3 KD = INVERT(fresnel_analytical) * INVERT(spatially_varying_material_parameters.g) + 0 * spatially_varying_material_parameters.g;
-		diffuse_radiance= diffuse_radiance * prt_ravi_diff.x;
-		diffuse_radiance= (simple_light_diffuse_light + diffuse_radiance) * spatially_varying_material_parameters.r * KD ;
-		specular_color*= prt_ravi_diff.z * spatially_varying_material_parameters.r;		
+		diffuse_radiance= diffuse_radiance * spatially_varying_material_parameters.r * KD * prt_ravi_diff.x;
+		diffuse_radiance= (simple_light_diffuse_light + diffuse_radiance);
+		specular_color*=  spatially_varying_material_parameters.r * prt_ravi_diff.z;		
 		
 		//diffuse_color= 0.0f;
 		//specular_color= spatially_varying_material_parameters.r;
@@ -845,9 +826,9 @@ void calc_material_cook_torrance_ggx_pbr_maps_ps(
 		envmap_specular_reflectance_and_roughness.xyz= fresnel_analytical * spatially_varying_material_parameters.b * specular_mask;		// ###ctchou $TODO this ain't right
 				
 		float3 KD = INVERT(fresnel_analytical) * INVERT(spatially_varying_material_parameters.g) + 0 * spatially_varying_material_parameters.g;
-		diffuse_radiance= diffuse_radiance * prt_ravi_diff.x;
-		diffuse_radiance= (simple_light_diffuse_light + diffuse_radiance) * spatially_varying_material_parameters.r * KD ;
-		specular_color*= prt_ravi_diff.z * spatially_varying_material_parameters.r;		
+		diffuse_radiance= diffuse_radiance * spatially_varying_material_parameters.r * KD * prt_ravi_diff.x;
+		diffuse_radiance= (simple_light_diffuse_light + diffuse_radiance);
+		specular_color*=  spatially_varying_material_parameters.r * prt_ravi_diff.z;		
 		
 		//diffuse_color= 0.0f;
 		//specular_color= spatially_varying_material_parameters.r;

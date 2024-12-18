@@ -569,13 +569,14 @@ void calc_albedo_texture_from_misc_ps(
 	apply_pc_albedo_modifier(albedo, normal);
 }
 
-void calc_albedo_from_four_change_color_ps(
+
+void calc_albedo_five_channel_ps(
 	in float2 texcoord,
 	out float4 albedo,
 	in float3 normal,
 	in float4 misc)
 {
-	float4 base=			float4(1.0, 1.0, 1.0, 1.0);
+	float4 base=			background_color;
 	float4 detail=			sampleBiasGlobal2D(detail_map,		transform_texcoord(texcoord, detail_map_xform));
 	float4 change_color=	sampleBiasGlobal2D(change_color_map,	transform_texcoord(texcoord, change_color_map_xform));
 
@@ -584,8 +585,61 @@ void calc_albedo_from_four_change_color_ps(
 						((1.0f-change_color.z) + change_color.z*tertiary_change_color.xyz)	*
 						((1.0f-change_color.w) + change_color.w*quaternary_change_color.xyz);
 
-	albedo.xyz= DETAIL_MULTIPLIER * base.xyz*detail.xyz*change_color.xyz;
+	if(detail_after_color_change)
+	{
+	albedo.xyz= DETAIL_MULTIPLIER * base.xyz*change_color.xyz*detail.xyz;
 	albedo.w= base.w*detail.w;
+	}
+	else{
+		albedo.xyz= DETAIL_MULTIPLIER * base.xyz*detail.xyz*change_color.xyz;
+		albedo.w= base.w*detail.w;
+
+	}
+
+
+	apply_pc_albedo_modifier(albedo, normal);
+}
+
+PARAM(float4, background_color);
+
+void calc_albedo_three_channel_ps(
+	in float2 texcoord,
+	out float4 albedo,
+	in float3 normal,
+	in float4 misc)
+{
+	float4 base=			background_color;
+	float4 detail=			sampleBiasGlobal2D(detail_map,		transform_texcoord(texcoord, detail_map_xform));
+	float4 change_color=	sampleBiasGlobal2D(change_color_map,	transform_texcoord(texcoord, change_color_map_xform));
+
+	change_color.xyz=	((1.0f-change_color.x) + change_color.x*primary_change_color.xyz)	*
+						((1.0f-change_color.y) + change_color.y*secondary_change_color.xyz);
+
+	if(detail_after_color_change)
+	{
+	albedo.xyz= DETAIL_MULTIPLIER * base.xyz*change_color.xyz*detail.xyz;
+	albedo.w= base.w*detail.w;
+	}
+	else{
+		albedo.xyz= DETAIL_MULTIPLIER * base.xyz*detail.xyz*change_color.xyz;
+		albedo.w= base.w*detail.w;
+
+	}
 	
 	apply_pc_albedo_modifier(albedo, normal);
 }
+
+/*
+#include "proc_noise.fx"
+
+void calc_albedo_simplex_test_ps(
+	in float2 texcoord,
+	out float4 albedo,
+	in float3 normal,
+	in float4 misc)
+{
+	albedo.xyz = calc_simplex_noise_ps(simplex_factor0, simplex_factor1);
+	apply_pc_albedo_modifier(albedo, normal);
+
+}
+*/

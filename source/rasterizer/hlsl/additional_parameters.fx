@@ -1,7 +1,7 @@
 /*
 =============================================
 Created by SpartanJoe193
-last modified on October 9th, 2024 2:31 PM GMT+8
+last modified on December 13th, 2024 10:27 AM GMT+8
 =============================================
 */
 
@@ -30,16 +30,16 @@ last modified on October 9th, 2024 2:31 PM GMT+8
 			(1.0 - v)
 
 	#define	HALF_BIAS(v)														\
-			(v-0.5)																	
+			(v - 0.5)																	
 
-	#define	HALF_BIAS_NEGATIVE(v)												\
-			(-v+0.5)																//Unused as of now
+	#define	HALF_BIAS_NEGATE(v)													\
+			(0.5 - v)																//Unused as of now
 
 	#define EXPAND(v)															\
-			(2*max(v, 0.0)-1)
+			(2 * v -1)
 
-	#define EXPAND_NEGATIVE(v)													\
-			(-2*max(v, 0.0)+1)																// Unused as of now
+	#define EXPAND_NEGATE(v)													\
+			(1 - 2 * v)																// Unused as of now
 
 /* Output processing clamped */
 
@@ -66,4 +66,9 @@ last modified on October 9th, 2024 2:31 PM GMT+8
 #define SRCALPHA	0.0
 
 
-#endif
+/* Misc*/
+// For plasma_mask_offset.fx
+
+#define lerp_inverse(x, y, s) x*s + y*(1-s) 
+
+#endif// _ADDITIONAL_PARAMETERS_FX_

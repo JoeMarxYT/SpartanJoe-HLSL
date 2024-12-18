@@ -55,7 +55,7 @@ float3 calc_self_illumination_transparent_ps(
 
 void calc_albedo_plasma_mask_offset_ps(
     in float2 texcoord,
-	out float4 albedo,
+	out half4 albedo,
 	in float3 normal,
 	in float4 misc)
 {
@@ -71,7 +71,7 @@ void calc_albedo_plasma_mask_offset_ps(
 			float T3a = plasma_mask.a;
 
     float R0a, R0b;
-    float3 R0, D1;
+    float3 R0, R1, D1;
 
     // ---
     // // Stage 0: Pre-Plasma_stage
@@ -81,24 +81,24 @@ void calc_albedo_plasma_mask_offset_ps(
 
     // R0= INVERT(C0a)*T2a + C0a*T0a   // linear interpolation
     // R0a= INVERT(C0b)*1/2 + C0b*T1a  // T3/2 is accemptable
-    		R0b = (lerp(T2a, T0a, plasma_factor1));
-			R0a = (lerp(0.5, T1a, plasma_factor2));
+    		R0b = signed_saturate(signed_saturate(INVERT(saturate(plasma_factor1))*MAX_0(T2a)) + signed_saturate(MAX_0(plasma_factor1)*MAX_0(T0a)));
+			R0a = signed_saturate(signed_saturate(INVERT(saturate(plasma_factor2))/2.0) + signed_saturate(MAX_0(plasma_factor2)*MAX_0(T1a)));
 
     // ---
     // // Stage 1: Preparation Stage
 
     // R0= T3a*1/2 + INVERT(T3a)*R0    // T3a/2
     // R0a= T3a*1/2 + INVERT(T3a)*R0a
-			R0b = T3a / 2.0 + INVERT(T3a) * R0b;
-		    R0a = T3a / 2.0 + INVERT(T3a) * R0a;
+			R0b = signed_saturate(signed_saturate(MAX_0(T3a) / 2.0) + signed_saturate(INVERT(T3a) * MAX_0(R0b)));
+		    R0a = signed_saturate(signed_saturate(MAX_0(T3a) / 2.0) + signed_saturate(INVERT(T3a) * MAX_0(R0a)));
 
     // ---
     // // Stage 2: Half-Bias Stage
 
     // R0= R0 - HALF_BIAS(R0a)
     // R0a= R0a - HALF_BIAS(R0b)
-			R0b = abs(R0b - HALF_BIAS(R0a));        // removes shading artifacts
-			R0a = abs(R0a - HALF_BIAS(R0b));
+			R0b = signed_saturate(signed_saturate(MAX_0(R0b)) + signed_saturate(HALF_BIAS_NEGATE(MAX_0(R0a))));
+			R0a = signed_saturate(signed_saturate(MAX_0(R0a)) + signed_saturate(HALF_BIAS_NEGATE(MAX_0(R0b))));
 
     // ---
     // // Stage 3: Plasma Scale By 4 and Glow Stage
@@ -118,22 +118,21 @@ void calc_albedo_plasma_mask_offset_ps(
         	D1 = D1= (INVERT(color_0.a)*color_0.rgb) + (color_1*color_0.a);
 			D1 = glow_and_tint ? color_1 : D1;
 
-			R0a= MUX((R0a*R0a), (R0b*R0b));
-			R0a= saturate(4.0*R0a);
+			R0a= MUX(signed_saturate(MAX_0(R0a*R0a)), signed_saturate(MAX_0(R0b*R0b)));
+			R0a= 4.0*signed_saturate(R0a);
     // ---
     // // Stage 4: Mask Attenuation and Plasma Sharpening Stage
     // C0a = $plasma_factor3
 
     // T3= OUT_SCALE_BY_4(T3*C0a)				// Addresses visibility issues
     // R0a= 0 mux EXPAND(R0a)*EXPAND(R0a)
-    		T3	= (4.0*(T3*plasma_factor3));
+    		T3	= saturate(4.0*(T3*plasma_factor3));
 			if(glow_and_tint)
 			{
 				T3 = color_0.rgb*T3;
 			}
             
-			R0a= 	MUX(0.0, (EXPAND(R0a)*EXPAND(R0a))); 							// R0a
-
+			R0a= 	MUX(0.0, signed_saturate(EXPAND(MAX_0(R0a))*EXPAND(MAX_0(R0a)))); // saturate removes shading artifacts
     // ---
     // // Stage 5: Mask Colorizing and Plasma Dulling stage
 
@@ -146,7 +145,7 @@ void calc_albedo_plasma_mask_offset_ps(
     // 			#endswitch
 
     // R0a= R0a + R0a*INVERT(R0a)
-    		R0a= R0a + R0a *  INVERT(R0a); 		// R0a
+    		R0a= signed_saturate(signed_saturate(MAX_0(R0a)) + signed_saturate(MAX_0(R0a) * INVERT(R0a))); 		// R0a
 
     // ---
     // // Stage 6: Plasma Masking Stage
@@ -159,19 +158,18 @@ void calc_albedo_plasma_mask_offset_ps(
     // #endswitch
 
     // R0= R0a*T3 + D1*R1
-			R0 = R0a * T3 + D1 * INVERT(T3a);
-				if(masked){
-                        R0= R0a * T3 + D1 * saturate(4.0*plasma_mask.rgb);
-                        }
+            R1 = masked ? saturate(4.0*plasma_mask.rgb) : INVERT(saturate(T3a));
+            R0 = signed_saturate(MAX_0(D1) * MAX_0(R1));
+			R0 = signed_saturate(signed_saturate(MAX_0(R0a) * MAX_0(T3)) + MAX_0(R0));
 
     // ---
     // // Stage 7: Post-Processing Stage
 
-    // C0a= $self_illum_intensity           // handled by calc_self_illumination_transparent_ps
+    // C0a= $plasma_brightness           // applied before self_illum
     // SRCCOLOR= R0*C0a
     // SRCALPHA= 0
 
-    		SRCCOLOR = (R0);
+    		SRCCOLOR = (R0*plasma_brightness);
 			SRCALPHA= 0;
 
 	apply_pc_albedo_modifier(albedo, normal);
