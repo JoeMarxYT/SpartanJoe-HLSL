@@ -17,14 +17,14 @@ There's also sample tags you can use you can use (thanks to RynoMods for porting
 
 2. Create a new `render_method_option` tag. Check the parameters of the HLSL file then add them there.
    For example. `transparent_generic.fx` has the float4 (rgba) parameter `plasma_color`, add that in the
-   render_method_option then set it to rgba color. Float1 paramters are under `real`
+   render_method_option then set it to rgba color. Float1 paramters are under `real`, float3 params are `rgb color` and float4 ones are `argb color`
 
-Return to the `render_method_definition` tag you modified then link the `render_method_option` tag in the option tag reference.
+Return to the `render_method_definition` tag you modified then link the `render_method_option` tag in the option tag reference. Make sure to backup the old one.
 ![param fx](https://github.com/SpartanJoe193/SpartanJoe-HLSL/blob/main/pics/fx%20file%20parameter.png?raw=true)
 ![param setup](https://github.com/SpartanJoe193/SpartanJoe-HLSL/blob/main/pics/parameters%20in%20option.png?raw=true)
 
 ### We will now create compile the actual shaders
-3. Extract the tags and source folder the to the `H3EK` root directory e.g. `F:/Steam/steampps/common/H3EK`. The tags folder already has the necessary shader tags and sample tags that use them
+3. Extract the tags and source folder the to the `H3EK` root directory e.g. `F:/Steam/steampps/common/H3EK`. The tags folder already has the necessary shader tags and sample tags that use them. ALWAYS BACK UP THE ORIGINAL RENDER METHOD DEFINITION TAGS.
 
 4. Run the following commands:
    ```
@@ -47,4 +47,4 @@ Notes:
 - The Material Models "Cook Torrance GGX" and its PBR map derivative now work and support the metallic workflow. 
 - any tag that uses the functions in `transparent_generic.fx` is strongly recommended to have `calc_self_illumination_transparent_ps` setup in the same `render_method_definition` tag
 - you can to port the hlsl functions to ODST and newer games although as previously stated porting them to Reach+ games require more effort
-- all plasma mask offset functions are going to be unified in one function
+- all plasma mask offset functions are unified under `calc_albedo_plasma_mask_offset_ps` in `plasma_mask_offset.fx`
