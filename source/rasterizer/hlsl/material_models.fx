@@ -206,7 +206,7 @@ PARAM(bool, no_dynamic_lights);
 #endif
 
 //*****************************************************************************
-// cook torrance with ggx distribution
+// cook torrance with ggx
 //*****************************************************************************
 #if MATERIAL_TYPE(material_type) == MATERIAL_TYPE_cook_torrance_ggx
 #include "cook_torrance_ggx.fx"
@@ -214,7 +214,7 @@ PARAM(bool, no_dynamic_lights);
 #endif
 
 //*****************************************************************************
-// cook torrance with ggx distribution and "pbr" maps
+// cook torrance with ggx distribution and pbr maps
 //*****************************************************************************
 #if MATERIAL_TYPE(material_type) == MATERIAL_TYPE_cook_torrance_ggx_pbr_maps
 #include "cook_torrance_ggx.fx"
