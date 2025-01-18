@@ -1,18 +1,20 @@
+# WARNING: this repository has been updated, the wording of this tutorial is patially outdated, PLEASE REPORT AND ALL ISSUES THAT ARISE FROM FOLLOWING THIS
+
 ## Intro
 If you use other hlsl mods make sure to modify both this set and the other for compatibility. Either way drop the fx files in "...\H3EK\source\rasterizer\hlsl".
-As for porting to newer games: It's likely compatible with Halo 3 ODST and maybe ElDewrito. Reach+, you will have to do extra work.
+As for porting to newer games: You need to modify the hlsl files if you want to use them Halo 3 ODST and maybe ElDewrito. Reach+, you will have to do extra work.
 There's also sample tags you can use you can use (thanks to RynoMods for porting the portable shield)
 
-## Functions:
-- Cook-Torrance GGX (base and PBR maps);
-- plasma mask offset (both Halo 1 and Halo 2 implementations);
-- multipurpose map support;
+## Features:
+- Cook-Torrance GGX;
+- Plasma Mask Offset (both Halo 1 and Halo 2 implementations);
+- Multipurpose Map support;
 
 ## How to set up
 ### We will set things up in the `render_method_defintion` tag 
 #### Steps 1 and 2 are for any custom shader function you made yourself
 
-1. Open a `render_method_definition` tag like `shaders\halogram.render_method_definition` and add a new option block in the category you want to modify. In the new block type the name of your custom pixel shader (e.g. `calc_albedo_plasma_offset_legacy`).
+1. Open a `render_method_definition` tag like `shaders\halogram.render_method_definition` and add a new option block in the category you want to modify. In the new block type the name of your custom pixel shader (e.g. `calc_albedo_plasma_mask_offset`).
 ![setup](https://github.com/SpartanJoe193/SpartanJoe-HLSL/blob/main/pics/render_method_definition_setup.png?raw=true)
 
 2. Create a new `render_method_option` tag. Check the parameters of the HLSL file then add them there.
