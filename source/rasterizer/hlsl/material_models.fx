@@ -19,7 +19,7 @@
 #define MATERIAL_TYPE_car_paint 11
 #define MATERIAL_TYPE_two_lobe_phong_tint_map 12
 #define MATERIAL_TYPE_cook_torrance_ggx 13
-#define MATERIAL_TYPE_cook_torrance_ggx_pbr_maps 14
+#define MATERIAL_TYPE_cook_torrance_ggx_attenutated_pbr_maps 14
 
 
 
@@ -214,9 +214,9 @@ PARAM(bool, no_dynamic_lights);
 #endif
 
 //*****************************************************************************
-// cook torrance with ggx distribution and pbr maps
+// cook torrance with ggx and attenuatable pbr_maps
 //*****************************************************************************
-#if MATERIAL_TYPE(material_type) == MATERIAL_TYPE_cook_torrance_ggx_pbr_maps
+#if MATERIAL_TYPE(material_type) == MATERIAL_TYPE_cook_torrance_ggx_attenutated_pbr_maps
 #include "cook_torrance_ggx.fx"
 #define NO_ALPHA_TO_COVERAGE
 #endif

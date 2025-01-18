@@ -4,14 +4,14 @@
 /*
 =============================================
 Created by SpartanJoe193
-last modified on October 28th, 2024 7:52 PM GMT+8
+last modified on january 15th, 2025, 8:16 PM GMT+8
 
 Note: GGX IS NOW working as intended.
 =============================================
 */
 
 //****************************************************************************
-// Cook-Torrance Material Model parameters
+// Cook-Torrance GGX Material Model parameters
 //****************************************************************************
 
 #include "additional_parameters.fx"
@@ -20,10 +20,12 @@ Note: GGX IS NOW working as intended.
 	#define H normalize(view_dir + light_dir)
 
 	// dot products 
-		#define N_L max(dot(normal_dir, light_dir), 0.001)
-		#define N_V max(dot(normal_dir, view_dir), 0.001)
-		#define N_H max(dot(normal_dir, H), 0.001)
-		#define V_H max(dot(view_dir, H), 0.001)
+		#define N_L max(dot(normal_dir, light_dir), 0.00001)
+		#define N_V max(dot(normal_dir, view_dir), 0.00001)
+		#define N_H max(dot(normal_dir, H), 0.00001)
+		#define V_H max(dot(view_dir, H), 0.00001)
+
+		#define min_dot min(N_L, N_V)
 
 
 PARAM(float3,	fresnel_color);				//reflectance at normal incidence
@@ -68,14 +70,46 @@ PARAM_SAMPLER_2D(g_sampler_c78d78);					//pre-integrated texture
 
 
 // Cook Torrance GGX parameters
+float get_material_cook_torrance_ggx_specular_power_scale(float power_or_roughness)
+{
+}
+
+float get_material_cook_torrance_ggx_attenutated_pbr_maps_specular_power_scale(float power_or_roughness)
+{
+}
+
+
 float get_material_cook_torrance_ggx_specular_power(float power_or_roughness)
 {
-	return 1.0f;
+	
+	[branch]
+	if (roughness == 0)
+	{
+		return 0;
+	}
+	else
+	{
+		return 0.27291 * pow(roughness, -2.1973); // ###ctchou $TODO low roughness still needs slightly higher power - try tweaking
+	}
+}
+
+float get_material_cook_torrance_ggx_attenutated_pbr_maps_specular_power(float power_or_roughness)
+{
+	
+	[branch]
+	if (roughness == 0)
+	{
+		return 0;
+	}
+	else
+	{
+		return 0.27291 * pow(roughness, -2.1973); // ###ctchou $TODO low roughness still needs slightly higher power - try tweaking
+	}
 }
 
 float3 get_diffuse_multiplier_cook_torrance_ggx_ps()
 {
-	return 1.0f;
+	return max(1.0f - metallic, 0.0);
 }
 
 float3 get_analytical_specular_multiplier_cook_torrance_ggx_ps(float specular_mask)
@@ -83,18 +117,12 @@ float3 get_analytical_specular_multiplier_cook_torrance_ggx_ps(float specular_ma
 	return specular_mask * analytical_specular_contribution * specular_tint;
 }
 
-
-float get_material_cook_torrance_ggx_pbr_maps_specular_power(float power_or_roughness)
+float3 get_diffuse_multiplier_cook_torrance_ggx_attenutated_pbr_maps_ps()
 {
-	return 1.0f;
+	return max(1.0f - metallic, 0.0);
 }
 
-float3 get_diffuse_multiplier_cook_torrance_ggx_pbr_maps_ps()
-{
-	return 1.0f;
-}
-
-float3 get_analytical_specular_multiplier_cook_torrance_ggx_pbr_maps_ps(float specular_mask)
+float3 get_analytical_specular_multiplier_cook_torrance_ggx_attenutated_pbr_maps_ps(float specular_mask)
 {
 	return specular_mask * analytical_specular_contribution * specular_tint;
 }
@@ -121,7 +149,7 @@ float Geometry_GGX_Schlick(
 	{
 			n_dot_x = n_dot_x;
 
-			float K = pow((roughness + 1.0f), 2.0f) / 8.0f;
+			float K = pow((max(roughness, 0.05) + 1.0f), 2.0f) / 8.0f;
 			// float K = pow(max(roughness, 0.05), 4.0f) / 2.0f;
 
 		    float nom   = n_dot_x;
@@ -138,7 +166,7 @@ float3 Fresnel_Fast_New(
 	inout float3 F0)
 	{
     		F0 = lerp(fresnel_color, albedo, metallic);
-			F0 = min(F0, 0.99f);
+			F0 = min(F0, 0.9999f);
     		return F0 + (1.0f - F0) * pow((1.0f - v_dot_h), 5.0f);
 	}
 
@@ -149,16 +177,16 @@ float3 Fresnel_Fast_New(
 //*****************************************************************************
 float Distribution_Legacy(in float4 spatially_varying_material_parameters, in float n_dot_h)
 	{
-		float t_roughness= max(spatially_varying_material_parameters.a, 0.05f);
+		float t_roughness= max(spatially_varying_material_parameters.g, 0.05f);
 		float m_squared= t_roughness*t_roughness;			
 		float cosine_alpha_squared = n_dot_h * n_dot_h;
 
 		return exp((cosine_alpha_squared-1)/(m_squared*cosine_alpha_squared))/(m_squared*cosine_alpha_squared*cosine_alpha_squared+epsilon_legacy);
 	}
 
-float Geometry_Legacy(in float n_dot_h, in float min_dot, in float v_dot_h)
+float Geometry_Legacy(in float n_dot_h, in float m_d, in float v_dot_h)
 	{
-		float G_Legacy1 = 2 * n_dot_h * min_dot;
+		float G_Legacy1 = 2 * n_dot_h * m_d;
 		float G_Legacy2 = (saturate(v_dot_h) + epsilon_legacy);
 
 		return G_Legacy1 / G_Legacy2;
@@ -179,8 +207,8 @@ float3 Fresnel_Legacy(in float3 specular_albedo_color, in float v_dot_h)
 
 float3 Fresnel_Legacy_New(inout float3 specular_albedo_color, in float3 fresnel_color, in float3 diffuse_albedo_color, in float v_dot_h, in float metallic)
 	{
-			float3 f0= min(specular_albedo_color, 0.999f);
-				   f0= lerp(fresnel_color, diffuse_albedo_color, metallic);
+			float3 f0= lerp(fresnel_color, diffuse_albedo_color, metallic);
+					f0= min(f0, 0.999f);
 			float3 sqrt_f0 = sqrt( f0 );
 			float3 n = ( 1.f + sqrt_f0 ) / ( 1.0 - sqrt_f0 );
 			float3 g = sqrt( n*n + v_dot_h*v_dot_h - 1.f );
@@ -214,11 +242,11 @@ void calc_material_analytic_specular_cook_torrance_ggx_ps(
 {
 
 	// the following parameters can be supplied in the material texture
-	// r: ambient occlusion
-	// g: metallic
-	// b: environment contribution
-	// a: roughless
-	spatially_varying_material_parameters= float4(ambient_occlusion_factor, metallic, environment_map_specular_contribution, roughness);
+	// r: metallic
+	// g: roughness
+	// b: ambient_occlusion
+	// a: environment_map_specular_contribution
+	spatially_varying_material_parameters= float4(metallic, roughness, 1, environment_map_specular_contribution);
 	if (use_material_texture)
 	{	
 		//over ride shader supplied values with what's from the texture
@@ -235,24 +263,28 @@ void calc_material_analytic_specular_cook_torrance_ggx_ps(
 
 		// D (Normal Distributpbion Function): GGX/Trowbridge-Reitz
 			// alpha^2 / π((n⋅h)^2 * (α2−1)+1)^2
-				D = Distribution_Trowbridge_Reitz(N_H, spatially_varying_material_parameters.a);
+				D = Distribution_Trowbridge_Reitz(N_H, spatially_varying_material_parameters.g);
 
 		// G (Geometry Function): GGX-Smith
 
-				float G1 = Geometry_GGX_Schlick(N_L, spatially_varying_material_parameters.a);
-				float G2 = Geometry_GGX_Schlick(N_V, spatially_varying_material_parameters.a);
+				float G1 = Geometry_GGX_Schlick(N_L, spatially_varying_material_parameters.g);
+				float G2 = Geometry_GGX_Schlick(N_V, spatially_varying_material_parameters.g);
 				
-				G= G1*G2;
+				G= saturate(G1*G2);		// Specular is way too bright if unsaturated
 
 
 		// F (Fresnel Function): Schlick Fast Approximation
-				F = Fresnel_Fast_New(V_H, fresnel_color, diffuse_albedo_color, spatially_varying_material_parameters.g, specular_albedo_color);
+				F = Fresnel_Fast_New(V_H, fresnel_color, diffuse_albedo_color, spatially_varying_material_parameters.r, specular_albedo_color);
 
-		analytic_specular_radiance=  ((D*G*F)/(4.0*N_L*N_V+epsilon)) * F * N_L * light_irradiance;  //* DGF/4(n.l)(n.v)
+		analytic_specular_radiance=  (D*G*F)/(4.0*N_L*N_V+epsilon) * F;  //* DGF/4(n.l)(n.v)
+		analytic_specular_radiance*= N_L * light_irradiance;
+
+		analytic_specular_radiance= min_dot > 0 ? analytic_specular_radiance : 0.00001f; 
+		F  = min_dot > 0 ? F : 0.00001f;
 }
 
 
-void calc_material_analytic_specular_cook_torrance_ggx_pbr_maps_ps(
+void calc_material_analytic_specular_cook_torrance_ggx_attenutated_pbr_maps_ps(
 	in float3 view_dir,										// fragment to camera, in world space
 	in float3 normal_dir,									// bumped fragment surface normal, in world space
 	in float3 view_reflect_dir,								// view_dir reflected about surface normal, in world space
@@ -275,9 +307,11 @@ void calc_material_analytic_specular_cook_torrance_ggx_pbr_maps_ps(
 	// b: ambient occlusion
 	// a: unused
 
-	spatially_varying_material_parameters= sampleBiasGlobal2D(material_texture, transform_texcoord(texcoord, material_texture_xform)).brgg;
+	spatially_varying_material_parameters.xyz= float3(metallic, roughness, ambient_occlusion_factor);
 
-	spatially_varying_material_parameters.z = environment_map_specular_contribution;
+	float4 pbr_map = sampleBiasGlobal2D(material_texture, transform_texcoord(texcoord, material_texture_xform));
+	spatially_varying_material_parameters.xyz *= pbr_map.xyz;
+	spatially_varying_material_parameters.a= environment_map_specular_contribution;
 
 		// float N_L = dot(normal_dir, light_dir);
 		// float N_V = dot(normal_dir, view_dir);
@@ -289,21 +323,24 @@ void calc_material_analytic_specular_cook_torrance_ggx_pbr_maps_ps(
 
 		// D (Normal Distributpbion Function): GGX/Trowbridge-Reitz
 			// alpha^2 / π((n⋅h)^2 * (α2−1)+1)^2
-				D = Distribution_Trowbridge_Reitz(N_H, spatially_varying_material_parameters.a);
+				D = Distribution_Trowbridge_Reitz(N_H, spatially_varying_material_parameters.g);
 
 		// G (Geometry Function): GGX-Smith
 
-				float G1 = Geometry_GGX_Schlick(N_L, spatially_varying_material_parameters.a);
-				float G2 = Geometry_GGX_Schlick(N_V, spatially_varying_material_parameters.a);
+				float G1 = Geometry_GGX_Schlick(N_L, spatially_varying_material_parameters.g);
+				float G2 = Geometry_GGX_Schlick(N_V, spatially_varying_material_parameters.g);
 				
-				G= G1*G2;
+				G= saturate(G1*G2);
 
 
 		// F (Fresnel Function): Schlick Fast Approximation
-				F = Fresnel_Fast_New(V_H, fresnel_color, diffuse_albedo_color, spatially_varying_material_parameters.g, specular_albedo_color);
+				F = Fresnel_Fast_New(V_H, fresnel_color, diffuse_albedo_color, spatially_varying_material_parameters.r, specular_albedo_color);
 
-		analytic_specular_radiance=  ((D*G*F)/(4.0*N_L*N_V+epsilon)) * F * N_L * light_irradiance;  //* DGF/4(n.l)(n.v)
-}
+		analytic_specular_radiance=  (D*G*F)/(4.0*N_L*N_V+epsilon) * F;  //* DGF/4(n.l)(n.v)
+		analytic_specular_radiance*= N_L * light_irradiance;
+		
+		analytic_specular_radiance= min_dot > 0 ? analytic_specular_radiance : 0.00001f; 
+		F  = min_dot > 0 ? F : 0.00001f;}
 
 //*****************************************************************************
 // Cook Torrance GGX for area light source in SH space
@@ -348,8 +385,8 @@ void sh_glossy_ct_2(
 	float3 rotate_y= cross(rotate_z, rotate_x);										// third one, 90 degrees  :)
 	
 	//local view
-	float t_roughness = max(roughness, 0.05f);
-	float2 view_lookup = float2(pow(dot(view_dir, rotate_x), power) + c_view_z_shift, t_roughness + c_roughness_shift);
+	float a2 = pow(roughness, 4.0f);
+	float2 view_lookup = float2(pow(dot(view_dir, rotate_x), power) + c_view_z_shift, a2 + c_roughness_shift);
 	
 	// bases: 0,2,3,6
 	float4 c_value= sample2D( g_sampler_cc0236, view_lookup ).SWIZZLE;
@@ -418,8 +455,8 @@ void sh_glossy_ct_3(
 	float3 rotate_y= cross(rotate_z, rotate_x);										// third one, 90 degrees  :)
 	
 	//local view
-	float t_roughness = max(roughness, 0.05f);
-	float2 view_lookup = float2(pow(dot(view_dir, rotate_x), power) + c_view_z_shift, t_roughness + c_roughness_shift);
+	float a2 = pow(roughness, 4.0f);
+	float2 view_lookup = float2(pow(dot(view_dir, rotate_x), power) + c_view_z_shift, a2 + c_roughness_shift);
 	
 	// bases: 0,2,3,6
 	float4 c_value= sample2D( g_sampler_cc0236, view_lookup ).SWIZZLE;
@@ -527,7 +564,8 @@ void calc_material_cook_torrance_ggx_base(
 #endif // pc
 	{
 	
-	
+		float nl = max(dot(view_normal, view_light_dir), 0.0);
+
 		float3 fresnel_analytical;			// fresnel_specular_albedo
 		float3 effective_reflectance;		// specular_albedo (no fresnel)
 		float4 per_pixel_parameters;
@@ -572,7 +610,7 @@ void calc_material_cook_torrance_ggx_base(
 				fragment_position_world,
 				view_normal,
 				view_reflect_dir_world,											// view direction = fragment to camera,   reflected around fragment normal
-				GET_MATERIAL_SPECULAR_POWER(material_type)(spatially_varying_material_parameters.a),
+				GET_MATERIAL_SPECULAR_POWER(material_type)(spatially_varying_material_parameters.g),
 				simple_light_diffuse_light,
 				simple_light_specular_light);
 		}
@@ -603,7 +641,7 @@ void calc_material_cook_torrance_ggx_base(
 				sh_312,
 				sh_457,
 				sh_8866,	//NEW_LIGHTMAP: changing to linear
-				spatially_varying_material_parameters.a,
+				spatially_varying_material_parameters.g,
 				r_dot_l,
 				1,
 				specular_part,
@@ -620,7 +658,7 @@ void calc_material_cook_torrance_ggx_base(
 				view_normal,
 				sh_0,
 				sh_312,
-				spatially_varying_material_parameters.a,
+				spatially_varying_material_parameters.g,
 				r_dot_l,
 				1,
 				specular_part,
@@ -628,7 +666,7 @@ void calc_material_cook_torrance_ggx_base(
 		}
 						
 		sh_glossy= specular_part * effective_reflectance + (1 - effective_reflectance) * schlick_part;
-		envmap_specular_reflectance_and_roughness.w= spatially_varying_material_parameters.a;
+		envmap_specular_reflectance_and_roughness.w= spatially_varying_material_parameters.g;
 		envmap_area_specular_only= sh_glossy * prt_ravi_diff.z * spec_tint;
 				
 		//scaling and masking
@@ -639,12 +677,12 @@ void calc_material_cook_torrance_ggx_base(
 			
 		specular_color.w= 0.0f;
 		
-		envmap_specular_reflectance_and_roughness.xyz= fresnel_analytical * spatially_varying_material_parameters.b * specular_mask;		// ###ctchou $TODO this ain't right
+		envmap_specular_reflectance_and_roughness.xyz= fresnel_analytical * spatially_varying_material_parameters.a * nl * specular_mask;		// ###ctchou $TODO this ain't right
 				
-		float3 KD = INVERT(fresnel_analytical) * INVERT(spatially_varying_material_parameters.g) + 0 * spatially_varying_material_parameters.g;
-		diffuse_radiance= diffuse_radiance * spatially_varying_material_parameters.r * KD * prt_ravi_diff.x;
-		diffuse_radiance= (simple_light_diffuse_light + diffuse_radiance);
-		specular_color*=  spatially_varying_material_parameters.r * prt_ravi_diff.z;		
+		float3 KD = lerp((1.0f-fresnel_analytical) , 0.0, spatially_varying_material_parameters.r);
+		diffuse_radiance= diffuse_radiance * prt_ravi_diff.x;
+		diffuse_radiance= (simple_light_diffuse_light + diffuse_radiance) * max(KD, 0.001) * spatially_varying_material_parameters.b;
+		specular_color*=  prt_ravi_diff.z * spatially_varying_material_parameters.b;
 		
 		//diffuse_color= 0.0f;
 		//specular_color= spatially_varying_material_parameters.r;
@@ -684,7 +722,7 @@ void calc_material_cook_torrance_ggx_ps(
 }
 
 
-void calc_material_cook_torrance_ggx_pbr_maps_ps(
+void calc_material_cook_torrance_ggx_attenutated_pbr_maps_ps(
 	in float3 view_dir,						// normalized
 	in float3 fragment_to_camera_world,
 	in float3 view_normal,					// normalized
@@ -711,14 +749,15 @@ void calc_material_cook_torrance_ggx_pbr_maps_ps(
 #endif // pc
 	{
 	
-	
+		float nl = max(dot(view_normal, view_light_dir), 0.0);
+
 		float3 fresnel_analytical;			// fresnel_specular_albedo
 		float3 effective_reflectance;		// specular_albedo (no fresnel)
 		float4 per_pixel_parameters;
 		float3 specular_analytical;			// specular radiance
 		float4 spatially_varying_material_parameters;
 		
-		calc_material_analytic_specular_cook_torrance_ggx_pbr_maps_ps(
+		calc_material_analytic_specular_cook_torrance_ggx_attenutated_pbr_maps_ps(
 			view_dir,
 			view_normal,
 			view_reflect_dir_world,
@@ -756,7 +795,7 @@ void calc_material_cook_torrance_ggx_pbr_maps_ps(
 				fragment_position_world,
 				view_normal,
 				view_reflect_dir_world,											// view direction = fragment to camera,   reflected around fragment normal
-				GET_MATERIAL_SPECULAR_POWER(material_type)(spatially_varying_material_parameters.a),
+				GET_MATERIAL_SPECULAR_POWER(material_type)(spatially_varying_material_parameters.g),
 				simple_light_diffuse_light,
 				simple_light_specular_light);
 		}
@@ -787,7 +826,7 @@ void calc_material_cook_torrance_ggx_pbr_maps_ps(
 				sh_312,
 				sh_457,
 				sh_8866,	//NEW_LIGHTMAP: changing to linear
-				spatially_varying_material_parameters.a,
+				spatially_varying_material_parameters.g,
 				r_dot_l,
 				1,
 				specular_part,
@@ -804,7 +843,7 @@ void calc_material_cook_torrance_ggx_pbr_maps_ps(
 				view_normal,
 				sh_0,
 				sh_312,
-				spatially_varying_material_parameters.a,
+				spatially_varying_material_parameters.g,
 				r_dot_l,
 				1,
 				specular_part,
@@ -812,7 +851,7 @@ void calc_material_cook_torrance_ggx_pbr_maps_ps(
 		}
 						
 		sh_glossy= specular_part * effective_reflectance + (1 - effective_reflectance) * schlick_part;
-		envmap_specular_reflectance_and_roughness.w= spatially_varying_material_parameters.a;
+		envmap_specular_reflectance_and_roughness.w= spatially_varying_material_parameters.g;
 		envmap_area_specular_only= sh_glossy * prt_ravi_diff.z * spec_tint;
 				
 		//scaling and masking
@@ -823,15 +862,16 @@ void calc_material_cook_torrance_ggx_pbr_maps_ps(
 			
 		specular_color.w= 0.0f;
 		
-		envmap_specular_reflectance_and_roughness.xyz= fresnel_analytical * spatially_varying_material_parameters.b * specular_mask;		// ###ctchou $TODO this ain't right
+		envmap_specular_reflectance_and_roughness.xyz= fresnel_analytical * spatially_varying_material_parameters.a * nl * specular_mask;		// ###ctchou $TODO this ain't right
 				
-		float3 KD = INVERT(fresnel_analytical) * INVERT(spatially_varying_material_parameters.g) + 0 * spatially_varying_material_parameters.g;
-		diffuse_radiance= diffuse_radiance * spatially_varying_material_parameters.r * KD * prt_ravi_diff.x;
-		diffuse_radiance= (simple_light_diffuse_light + diffuse_radiance);
-		specular_color*=  spatially_varying_material_parameters.r * prt_ravi_diff.z;		
+		float3 KD = lerp((1.0f-fresnel_analytical) , 0.0, spatially_varying_material_parameters.r);
+		diffuse_radiance= diffuse_radiance * prt_ravi_diff.x;
+		diffuse_radiance= (simple_light_diffuse_light + diffuse_radiance) * max(KD, 0.001) * spatially_varying_material_parameters.b;
+		specular_color*=  prt_ravi_diff.z * spatially_varying_material_parameters.b;
 		
 		//diffuse_color= 0.0f;
 		//specular_color= spatially_varying_material_parameters.r;
+	
 	}
 #ifdef pc
 	else
@@ -873,4 +913,4 @@ void calc_material_model_cook_torrance_ggx_ps(
 }
 #endif
 
-#endif  //ifndef _SH_GLOSSY_FX_
+#endif  //ifndef _COOK_TORRANCE_GGX_FX_
